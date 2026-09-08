@@ -10,6 +10,10 @@
 
 ;;; Commentary:
 
+;; This is a small package to enter events into a Google calendar.
+
+;; The main entry point is `quick-calendar-add'.  See the doc string
+;; for documentation on the date/time formats accepted.
 
 ;;; Code:
 
@@ -41,6 +45,28 @@
     (10 "oct" "oct" "oct")
     (11 "nov" "nov" "nov")
     (12 "dec" "dec" "dev")))
+
+(defun quick-calendar-add ()
+  "Prompt the WHEN and TITLE and add to the calendar.
+
+Valid formats are:
+
+mon 14 (the following Monday at 14:00)
+vendredi 930 (the following Friday at 09:30)
+aug 3 9 (the following August 3rd at 09:00)
+13 9 (the following 13th in this or the next month at 09:00)"
+  (interactive)
+  (unless quick-calendar-name
+    (user-error
+     "You have to set `quick-calendar-name' to the calendar name first."))
+  (cl-destructuring-bind (time title)
+      (quick-calendar--parse-1 (read-string "Time and event: "))
+    (if (y-or-n-p (format "Add %S at %s? "
+			  title (format-time-string
+				 "%A %F %H:%M" (encode-time time))))
+	(quick-calendar--add title
+			     (format-time-string "%FT%T" (encode-time time)))
+      (message "Didn't add anything"))))
 
 (defun quick-calendar-parse (string)
   "Parse STRING into an ISO 8601 time string.
@@ -127,18 +153,6 @@ aug 3 9 (the following August 3rd at 09:00)
     (setf (decoded-time-hour target) hour)
     ;; Recompute the day-of-week.
     (decode-time (encode-time target) (decoded-time-zone target))))
-
-(defun quick-calendar-add ()
-  "Prompt the WHEN and TITLE and add to the calendar."
-  (interactive)
-  (cl-destructuring-bind (time title)
-      (quick-calendar--parse-1 (read-string "Time and event: "))
-    (if (y-or-n-p (format "Add %S at %s? "
-			  title (format-time-string
-				 "%A %F %H:%M" (encode-time time))))
-	(quick-calendar--add title
-			     (format-time-string "%FT%T" (encode-time time)))
-      (message "Didn't add anything"))))
 
 (defun quick-calendar--add (title when &optional duration)
   (with-temp-buffer
