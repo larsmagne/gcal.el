@@ -15,6 +15,9 @@
 
 (require 'cl-lib)
 
+(defvar quick-calendar-name nil
+  "The name of the calendar.")
+
 (defvar quick-calendar-days
   '((0 "sun" "dim" "søn")
     (1 "mon" "lun" "man")
@@ -47,6 +50,9 @@ mon 14 (the following Monday at 14:00)
 vendredi 930 (the following Friday at 09:30)
 aug 3 9 (the following August 3rd at 09:00)
 13 9 (the following 13th in this or the next month at 09:00)"
+  (car (quick-calendar--parse-1 string)))
+
+(defun quick-calendar--parse-1 (string)
   (let* ((bits (split-string (downcase string)
 			     nil nil split-string-default-separators))
 	 (day (cl-loop for (day . names) in quick-calendar-days
@@ -55,25 +61,27 @@ aug 3 9 (the following August 3rd at 09:00)
 	 month)
     (cond
      (day
-	;; We have the day; find the next date and parse the rest as
-	;; the time.
-	(cl-loop with target = (decode-time)
-		 when (= day (decoded-time-weekday target))
-		 return (quick-calendar--fill-clock target (cadr bits))
-		 do
-		 (setq target
-		       ;; Update weekday.
-		       (decode-time
-			(encode-time 
-			 (decoded-time-add
-			  target (make-decoded-time :day 1)))
-			(decoded-time-zone target)))))
+      ;; We have the day; find the next date and parse the rest as
+      ;; the time.
+      (cl-loop with target = (decode-time)
+	       when (= day (decoded-time-weekday target))
+	       return (list (quick-calendar--fill-clock target (cadr bits))
+			    (string-join (cddr bits) " "))
+	       do
+	       (setq target
+		     ;; Update weekday.
+		     (decode-time
+		      (encode-time 
+		       (decoded-time-add
+			target (make-decoded-time :day 1)))
+		      (decoded-time-zone target)))))
      ((string-match-p "\\`[0-9]+\\'" (car bits))
       ;; We have a numerical day-of-the-month in the current or next month.
       (cl-loop with date = (string-to-number (car bits))
 	       with target = (decode-time)
 	       when (= date (decoded-time-day target))
-	       return (quick-calendar--fill-clock target (cadr bits))
+	       return (list (quick-calendar--fill-clock target (cadr bits))
+			    (string-join (cddr bits) " "))
 	       do
 	       (setq target (decoded-time-add
 			     target (make-decoded-time :day 1)))))
@@ -97,7 +105,8 @@ aug 3 9 (the following August 3rd at 09:00)
 	;; Then the next thing must be the day in that month.
 	(setf (decoded-time-day target) (string-to-number (cadr bits)))
 	;; Finally fill in the clock.
-	(quick-calendar--fill-clock target (caddr bits))))
+	(list (quick-calendar--fill-clock target (caddr bits))
+	      (string-join (cdddr bits) " "))))
      (t
       (error "Unable to parse this time: %s" string)))))
 
@@ -118,6 +127,30 @@ aug 3 9 (the following August 3rd at 09:00)
     (setf (decoded-time-hour target) hour)
     ;; Recompute the day-of-week.
     (decode-time (encode-time target) (decoded-time-zone target))))
+
+(defun quick-calendar-add ()
+  "Prompt the WHEN and TITLE and add to the calendar."
+  (interactive)
+  (cl-destructuring-bind (time title)
+      (quick-calendar--parse-1 (read-string "Time and event: "))
+    (if (y-or-n-p (format "Add %S at %s? "
+			  title (format-time-string
+				 "%A %F %H:%M" (encode-time time))))
+	(quick-calendar--add title
+			     (format-time-string "%FT%T" (encode-time time)))
+      (message "Didn't add anything"))))
+
+(defun quick-calendar--add (title when &optional duration)
+  (with-temp-buffer
+    (call-process "gcalcli" nil t nil
+		  "add"
+		  "--noprompt"
+		  "--calendar" quick-calendar-name
+		  "--title" title
+		  "--when" when
+		  "--duration" (format "%s" (or duration "60")))
+    (unless (zerop (buffer-size))
+      (message "Error when adding: %s" (buffer-string)))))
 
 (provide 'quick-calendar)
 
