@@ -1,9 +1,9 @@
-;;; quick-calendar.el --- Adding entries to Google Calendar -*- lexical-binding: t; -*-
+;;; gcal.el --- Adding entries to Google Calendar -*- lexical-binding: t; -*-
 ;; Copyright (C) 2026 Lars Magne Ingebrigtsen
 
 ;; Author: Lars Magne Ingebrigtsen <larsi@gnus.org>
 
-;; quick-calendar.el is free software; you can redistribute it and/or modify
+;; gcal.el is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published
 ;; by the Free Software Foundation; either version 2, or (at your
 ;; option) any later version.
@@ -12,17 +12,17 @@
 
 ;; This is a small package to enter events into a Google calendar.
 
-;; The main entry point is `quick-calendar-add'.  See the doc string
+;; The main entry point is `gcal-add'.  See the doc string
 ;; for documentation on the date/time formats accepted.
 
 ;;; Code:
 
 (require 'cl-lib)
 
-(defvar quick-calendar-name nil
+(defvar gcal-name nil
   "The name of the calendar.")
 
-(defvar quick-calendar-days
+(defvar gcal-days
   '((0 "sun" "dim" "søn")
     (1 "mon" "lun" "man")
     (2 "tue" "mar" "tir")
@@ -32,7 +32,7 @@
     (6 "sat" "sam" "lør"))
   "The first three letters of weekdays in the languages you want to support.")
 
-(defvar quick-calendar-months
+(defvar gcal-months
   '((1  "jan" "jan" "jan")
     (2  "feb" "fev" "feb")
     (3  "mar" "mar" "mar")
@@ -46,7 +46,7 @@
     (11 "nov" "nov" "nov")
     (12 "dec" "dec" "dev")))
 
-(defun quick-calendar-add ()
+(defun gcal-add ()
   "Prompt the WHEN and TITLE and add to the calendar.
 
 Valid formats are:
@@ -56,19 +56,19 @@ vendredi 930 (the following Friday at 09:30)
 aug 3 9 (the following August 3rd at 09:00)
 13 9 (the following 13th in this or the next month at 09:00)"
   (interactive)
-  (unless quick-calendar-name
+  (unless gcal-name
     (user-error
-     "You have to set `quick-calendar-name' to the calendar name first."))
+     "You have to set `gcal-name' to the calendar name first."))
   (cl-destructuring-bind (time title)
-      (quick-calendar--parse-1 (read-string "Time and event: "))
+      (gcal--parse-1 (read-string "Time and event: "))
     (if (y-or-n-p (format "Add %S at %s? "
 			  title (format-time-string
 				 "%A %F %H:%M" (encode-time time))))
-	(quick-calendar--add title
+	(gcal--add title
 			     (format-time-string "%FT%T" (encode-time time)))
       (message "Didn't add anything"))))
 
-(defun quick-calendar-parse (string)
+(defun gcal-parse (string)
   "Parse STRING into an ISO 8601 time string.
 Valid formats are:
 
@@ -76,12 +76,12 @@ mon 14 (the following Monday at 14:00)
 vendredi 930 (the following Friday at 09:30)
 aug 3 9 (the following August 3rd at 09:00)
 13 9 (the following 13th in this or the next month at 09:00)"
-  (car (quick-calendar--parse-1 string)))
+  (car (gcal--parse-1 string)))
 
-(defun quick-calendar--parse-1 (string)
+(defun gcal--parse-1 (string)
   (let* ((bits (split-string (downcase string)
 			     nil nil split-string-default-separators))
-	 (day (cl-loop for (day . names) in quick-calendar-days
+	 (day (cl-loop for (day . names) in gcal-days
 		       when (member (string-limit (car bits) 3) names)
 		       return day))
 	 month)
@@ -91,7 +91,7 @@ aug 3 9 (the following August 3rd at 09:00)
       ;; the time.
       (cl-loop with target = (decode-time)
 	       when (= day (decoded-time-weekday target))
-	       return (list (quick-calendar--fill-clock target (cadr bits))
+	       return (list (gcal--fill-clock target (cadr bits))
 			    (string-join (cddr bits) " "))
 	       do
 	       (setq target
@@ -106,13 +106,13 @@ aug 3 9 (the following August 3rd at 09:00)
       (cl-loop with date = (string-to-number (car bits))
 	       with target = (decode-time)
 	       when (= date (decoded-time-day target))
-	       return (list (quick-calendar--fill-clock target (cadr bits))
+	       return (list (gcal--fill-clock target (cadr bits))
 			    (string-join (cddr bits) " "))
 	       do
 	       (setq target (decoded-time-add
 			     target (make-decoded-time :day 1)))))
      ((setq month
-	    (cl-loop for (month . names) in quick-calendar-months
+	    (cl-loop for (month . names) in gcal-months
 		     for result =
 		     (cl-loop for name in names
 			      when (equal (string-limit
@@ -131,12 +131,12 @@ aug 3 9 (the following August 3rd at 09:00)
 	;; Then the next thing must be the day in that month.
 	(setf (decoded-time-day target) (string-to-number (cadr bits)))
 	;; Finally fill in the clock.
-	(list (quick-calendar--fill-clock target (caddr bits))
+	(list (gcal--fill-clock target (caddr bits))
 	      (string-join (cdddr bits) " "))))
      (t
       (error "Unable to parse this time: %s" string)))))
 
-(defun quick-calendar--fill-clock (target time)
+(defun gcal--fill-clock (target time)
   (let (hour (minute 0))
     (cond
      ((<= (length time) 2)
@@ -154,12 +154,12 @@ aug 3 9 (the following August 3rd at 09:00)
     ;; Recompute the day-of-week.
     (decode-time (encode-time target) (decoded-time-zone target))))
 
-(defun quick-calendar--add (title when &optional duration)
+(defun gcal--add (title when &optional duration)
   (with-temp-buffer
     (call-process "gcalcli" nil t nil
 		  "add"
 		  "--noprompt"
-		  "--calendar" quick-calendar-name
+		  "--calendar" gcal-name
 		  "--title" title
 		  "--when" when
 		  "--duration" (format "%s" (or duration "60")))
@@ -167,6 +167,6 @@ aug 3 9 (the following August 3rd at 09:00)
 	(message "Added %s at %s to the calendar" title when)
       (message "Error when adding: %s" (buffer-string)))))
 
-(provide 'quick-calendar)
+(provide 'gcal)
 
-;;; quick-calendar.el ends here.
+;;; gcal.el ends here.
