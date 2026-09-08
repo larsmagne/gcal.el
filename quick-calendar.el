@@ -45,13 +45,18 @@ Valid formats are:
 
 mon 14 (the following Monday at 14:00)
 vendredi 930 (the following Friday at 09:30)
-aug 3 9 (the following August 3rd at 09:00)"
-  (let* ((bits (split-string string nil nil split-string-default-separators))
+aug 3 9 (the following August 3rd at 09:00)
+13 9 (the following 13th in this or the next month at 09:00)"
+  (let* ((bits (split-string (downcase string)
+			     nil nil split-string-default-separators))
 	 (day (cl-loop for (day . names) in quick-calendar-days
-		       when (member (string-limit string 3) names)
-		       return day)))
-    (if day
-	;; We have the day; parse the rest as the time.
+		       when (member (string-limit (car bits) 3) names)
+		       return day))
+	 month)
+    (cond
+     (day
+	;; We have the day; find the next date and parse the rest as
+	;; the time.
 	(cl-loop with target = (decode-time)
 		 when (= day (decoded-time-weekday target))
 		 return (quick-calendar--fill-clock target (cadr bits))
@@ -61,8 +66,40 @@ aug 3 9 (the following August 3rd at 09:00)"
 		       (decode-time
 			(encode-time 
 			 (decoded-time-add
-			  target (make-decoded-time :day 1))))))
-      )))
+			  target (make-decoded-time :day 1)))
+			(decoded-time-zone target)))))
+     ((string-match-p "\\`[0-9]+\\'" (car bits))
+      ;; We have a numerical day-of-the-month in the current or next month.
+      (cl-loop with date = (string-to-number (car bits))
+	       with target = (decode-time)
+	       when (= date (decoded-time-day target))
+	       return (quick-calendar--fill-clock target (cadr bits))
+	       do
+	       (setq target (decoded-time-add
+			     target (make-decoded-time :day 1)))))
+     ((setq month
+	    (cl-loop for (month . names) in quick-calendar-months
+		     for result =
+		     (cl-loop for name in names
+			      when (equal (string-limit
+					   (car bits) (length name))
+					  name)
+			      return month)
+		     when result
+		     return result))
+      ;; We have the month name.
+      (let ((target (decode-time)))
+	;; If we're in November and the string indicated February,
+	;; then that's next year.
+	(when (> (decoded-time-month target) month)
+	  (setq target (decoded-time-add target (make-decoded-time :year 1))))
+	(setf (decoded-time-month target) month)
+	;; Then the next thing must be the day in that month.
+	(setf (decoded-time-day target) (string-to-number (cadr bits)))
+	;; Finally fill in the clock.
+	(quick-calendar--fill-clock target (caddr bits))))
+     (t
+      (error "Unable to parse this time: %s" string)))))
 
 (defun quick-calendar--fill-clock (target time)
   (let (hour (minute 0))
@@ -79,7 +116,8 @@ aug 3 9 (the following August 3rd at 09:00)"
     (setf (decoded-time-second target) 0)
     (setf (decoded-time-minute target) minute)
     (setf (decoded-time-hour target) hour)
-    target))
+    ;; Recompute the day-of-week.
+    (decode-time (encode-time target) (decoded-time-zone target))))
 
 (provide 'quick-calendar)
 
