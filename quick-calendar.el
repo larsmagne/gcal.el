@@ -149,7 +149,8 @@ aug 3 9 (the following August 3rd at 09:00)
 		  "--title" title
 		  "--when" when
 		  "--duration" (format "%s" (or duration "60")))
-    (unless (zerop (buffer-size))
+    (if (zerop (buffer-size))
+	(message "Added %s at %s to the calendar" title when)
       (message "Error when adding: %s" (buffer-string)))))
 
 (provide 'quick-calendar)
