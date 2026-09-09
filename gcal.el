@@ -33,18 +33,18 @@
   "The first three letters of weekdays in the languages you want to support.")
 
 (defvar gcal-months
-  '((1  "jan" "jan" "jan")
-    (2  "feb" "fev" "feb")
-    (3  "mar" "mar" "mar")
-    (4  "apr" "avr" "apr")
-    (5  "may" "mai" "mai")
+  '((1  "jan" "jan"  "jan" "j")
+    (2  "feb" "fev"  "feb" "f")
+    (3  "mar" "mar"  "mar")
+    (4  "apr" "avr"  "apr" "ap" "av")
+    (5  "may" "mai"  "mai")
     (6  "jun" "juin" "jun")
     (7  "jul" "juil" "jul")
-    (8  "aug" "aug" "aug")
-    (9  "sep" "sep" "sep")
-    (10 "oct" "oct" "oct")
-    (11 "nov" "nov" "nov")
-    (12 "dec" "dec" "dev")))
+    (8  "aug" "aug"  "aug" "au")
+    (9  "sep" "sep"  "sep" "s")
+    (10 "oct" "oct"  "oct" "o")
+    (11 "nov" "nov"  "nov" "n")
+    (12 "dec" "dec"  "des" "d")))
 
 (defun gcal-add ()
   "Prompt the WHEN and TITLE and add to the calendar.
