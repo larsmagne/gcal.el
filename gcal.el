@@ -87,20 +87,19 @@ aug 3 9 (the following August 3rd at 09:00)
 	 month)
     (cond
      (day
-      ;; We have the day; find the next date and parse the rest as
-      ;; the time.
-      (cl-loop with target = (decode-time)
+      ;; We have the day; find the next date and parse the rest as the
+      ;; time.  Start on next day -- if you say "Tue" and it's a
+      ;; Tuesday, you don't want today.
+      (cl-loop for target = 
+	       ;; Update weekday.
+	       (decode-time
+		(encode-time 
+		 (decoded-time-add
+		  (or target (decode-time)) (make-decoded-time :day 1)))
+		(decoded-time-zone target))
 	       when (= day (decoded-time-weekday target))
 	       return (list (gcal--fill-clock target (cadr bits))
-			    (string-join (cddr bits) " "))
-	       do
-	       (setq target
-		     ;; Update weekday.
-		     (decode-time
-		      (encode-time 
-		       (decoded-time-add
-			target (make-decoded-time :day 1)))
-		      (decoded-time-zone target)))))
+			    (string-join (cddr bits) " "))))
      ((string-match-p "\\`[0-9]+\\'" (car bits))
       ;; We have a numerical day-of-the-month in the current or next month.
       (cl-loop with date = (string-to-number (car bits))
