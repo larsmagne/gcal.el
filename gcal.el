@@ -63,9 +63,11 @@ aug 3 9 (the following August 3rd at 09:00)
       (gcal--parse-1 (read-string "Time and event: "))
     (if (y-or-n-p (format "Add %S at %s? "
 			  title (format-time-string
-				 "%A %F %H:%M" (encode-time time))))
+				 "%A %F %H:%M" (encode-time time)
+				 (decoded-time-zone time))))
 	(gcal--add title
-			     (format-time-string "%FT%T" (encode-time time)))
+		   (format-time-string "%FT%T" (encode-time time)
+				       (decoded-time-zone time)))
       (message "Didn't add anything"))))
 
 (defun gcal-parse (string)
